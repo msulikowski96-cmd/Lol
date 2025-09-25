@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ranking - LoL Stats</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>LoL Stats</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/champions" class="nav-link">Champions</a></li>
+                <li><a href="/leaderboard" class="nav-link active">Ranking</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container" style="padding: 40px 20px;">
+        <div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 40px; border-radius: 10px; text-align: center; margin-bottom: 40px;">
+            <h1><i class="fas fa-trophy"></i> Ranking Graczy</h1>
+            <p>Leaderboard najlepszych graczy będzie dostępny wkrótce</p>
+        </div>
+        
+        <div style="background: #34495e; color: white; padding: 30px; border-radius: 10px; text-align: center;">
+            <i class="fas fa-medal fa-3x" style="margin-bottom: 20px; color: #e74c3c;"></i>
+            <h2>W budowie</h2>
+            <p>Ta sekcja jest obecnie w fazie rozwoju. Wkrótce znajdziesz tutaj:</p>
+            <ul style="list-style: none; margin-top: 20px;">
+                <li><i class="fas fa-check"></i> Ranking graczy według regionów</li>
+                <li><i class="fas fa-check"></i> Najlepsi gracze na championach</li>
+                <li><i class="fas fa-check"></i> Statystyki challenger tier</li>
+                <li><i class="fas fa-check"></i> Porównanie z innymi graczami</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
