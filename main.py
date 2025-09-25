@@ -29,13 +29,22 @@ def get_summoner_data(riot_id):
             return jsonify({'error': 'Invalid Riot ID format. Use gamename#tag'}), 400
 
         gamename, tag = riot_id.split('#', 1)
+        
+        # URL encode the gamename and tag to handle special characters
+        from urllib.parse import quote
+        encoded_gamename = quote(gamename, safe='')
+        encoded_tag = quote(tag, safe='')
 
         # Get account info using Riot ID (gamename + tag)
-        account_url = f"{EUROPE_BASE_URL}/riot/account/v1/accounts/by-riot-id/{gamename}/{tag}"
+        account_url = f"{EUROPE_BASE_URL}/riot/account/v1/accounts/by-riot-id/{encoded_gamename}/{encoded_tag}"
         headers = {'X-Riot-Token': RIOT_API_KEY}
+        
+        print(f"Account URL: {account_url}")
 
         # Get account by Riot ID
         account_response = requests.get(account_url, headers=headers)
+        print(f"Account API Status: {account_response.status_code}")
+        print(f"Account API Response: {account_response.text}")
         if account_response.status_code != 200:
             if account_response.status_code == 404:
                 return jsonify({'error': 'Account not found'}), 404
@@ -47,15 +56,26 @@ def get_summoner_data(riot_id):
         # Get summoner info by PUUID
         summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-puuid/{puuid}"
         summoner_response = requests.get(summoner_url, headers=headers)
+        
+        print(f"Summoner API Status: {summoner_response.status_code}")
+        print(f"Summoner API Response: {summoner_response.text}")
+        
         if summoner_response.status_code != 200:
-            return jsonify({'error': 'Summoner not found'}), 404
+            return jsonify({'error': f'Summoner API error: {summoner_response.status_code}'}), 404
 
         summoner_data = summoner_response.json()
+        
+        # Check if summoner_data has required fields
+        if 'id' not in summoner_data:
+            print(f"Missing 'id' field in summoner data: {summoner_data}")
+            return jsonify({'error': 'Invalid summoner data structure'}), 500
 
         # Get ranked info
         ranked_url = f"{RIOT_BASE_URL}/lol/league/v4/entries/by-summoner/{summoner_data['id']}"
         ranked_response = requests.get(ranked_url, headers=headers)
         ranked_data = ranked_response.json() if ranked_response.status_code == 200 else []
+        
+        print(f"Ranked API Status: {ranked_response.status_code}")
 
         # Find Solo/Duo queue data
         solo_queue = next((entry for entry in ranked_data if entry['queueType'] == 'RANKED_SOLO_5x5'), None)
