@@ -237,6 +237,230 @@ def champions():
 def leaderboard():
     return render_template('leaderboard.html')
 
+@app.route('/api/live-game/<path:riot_id>')
+def get_live_game(riot_id):
+    """Check if player is in an active game and get all players' data"""
+    try:
+        # Parse gamename and tag from riot_id
+        if '#' not in riot_id:
+            return jsonify({'error': 'Invalid Riot ID format. Use gamename#tag'}), 400
+
+        gamename, tag = riot_id.split('#', 1)
+        from urllib.parse import quote
+        encoded_gamename = quote(gamename, safe='')
+        encoded_tag = quote(tag, safe='')
+
+        # Get account info using Riot ID
+        account_url = f"{EUROPE_BASE_URL}/riot/account/v1/accounts/by-riot-id/{encoded_gamename}/{encoded_tag}"
+        headers = {'X-Riot-Token': RIOT_API_KEY}
+        
+        account_response = requests.get(account_url, headers=headers)
+        if account_response.status_code != 200:
+            return jsonify({'error': 'Account not found'}), 404
+
+        account_data = account_response.json()
+        puuid = account_data['puuid']
+
+        # Get summoner info to get summoner ID
+        summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-puuid/{puuid}"
+        summoner_response = requests.get(summoner_url, headers=headers)
+        
+        if summoner_response.status_code != 200:
+            return jsonify({'error': 'Summoner not found'}), 404
+
+        summoner_data = summoner_response.json()
+        summoner_id = summoner_data.get('id')
+
+        if not summoner_id:
+            return jsonify({'inGame': False, 'message': 'Cannot check live game status'}), 200
+
+        # Check for active game
+        live_game_url = f"{RIOT_BASE_URL}/lol/spectator/v4/active-games/by-summoner/{summoner_id}"
+        live_response = requests.get(live_game_url, headers=headers)
+
+        if live_response.status_code == 404:
+            return jsonify({'inGame': False, 'message': 'Player not in game'}), 200
+        elif live_response.status_code != 200:
+            return jsonify({'error': f'API error: {live_response.status_code}'}), 500
+
+        live_data = live_response.json()
+
+        # Process participants data
+        participants = []
+        for participant in live_data['participants']:
+            # Get additional summoner data for each participant
+            participant_data = {
+                'summonerName': participant['summonerName'],
+                'championId': participant['championId'],
+                'championName': get_champion_name(participant['championId']),
+                'teamId': participant['teamId'],
+                'spell1Id': participant['spell1Id'],
+                'spell2Id': participant['spell2Id'],
+                'isBot': participant.get('bot', False),
+                'puuid': participant.get('puuid', ''),
+                'profileIconId': participant.get('profileIconId', 0),
+                'summonerLevel': participant.get('summonerLevel', 0)
+            }
+            
+            # Try to get ranked info for this participant if not a bot
+            if not participant_data['isBot'] and 'summonerId' in participant:
+                ranked_url = f"{RIOT_BASE_URL}/lol/league/v4/entries/by-summoner/{participant['summonerId']}"
+                ranked_response = requests.get(ranked_url, headers=headers)
+                if ranked_response.status_code == 200:
+                    ranked_data = ranked_response.json()
+                    solo_queue = next((entry for entry in ranked_data if entry['queueType'] == 'RANKED_SOLO_5x5'), None)
+                    if solo_queue:
+                        participant_data['rank'] = {
+                            'tier': solo_queue['tier'],
+                            'rank': solo_queue['rank'],
+                            'leaguePoints': solo_queue['leaguePoints'],
+                            'wins': solo_queue['wins'],
+                            'losses': solo_queue['losses']
+                        }
+                    else:
+                        participant_data['rank'] = {'tier': 'UNRANKED', 'rank': '', 'leaguePoints': 0, 'wins': 0, 'losses': 0}
+                else:
+                    participant_data['rank'] = {'tier': 'UNRANKED', 'rank': '', 'leaguePoints': 0, 'wins': 0, 'losses': 0}
+            else:
+                participant_data['rank'] = {'tier': 'UNRANKED', 'rank': '', 'leaguePoints': 0, 'wins': 0, 'losses': 0}
+
+            participants.append(participant_data)
+
+        # Separate teams
+        team1 = [p for p in participants if p['teamId'] == 100]
+        team2 = [p for p in participants if p['teamId'] == 200]
+
+        # Get match prediction
+        prediction = predict_match_outcome(team1, team2)
+
+        return jsonify({
+            'inGame': True,
+            'gameMode': live_data.get('gameMode', 'Unknown'),
+            'gameLength': live_data.get('gameLength', 0),
+            'gameQueueConfigId': live_data.get('gameQueueConfigId', 0),
+            'team1': team1,
+            'team2': team2,
+            'prediction': prediction
+        })
+
+    except Exception as e:
+        print(f"Error in get_live_game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+def get_champion_name(champion_id):
+    """Simple champion ID to name mapping - in a real app you'd use Riot's Data Dragon"""
+    champion_map = {
+        1: "Annie", 2: "Olaf", 3: "Galio", 4: "Twisted Fate", 5: "Xin Zhao",
+        6: "Urgot", 7: "LeBlanc", 8: "Vladimir", 9: "Fiddlesticks", 10: "Kayle",
+        11: "Master Yi", 12: "Alistar", 13: "Ryze", 14: "Sion", 15: "Sivir",
+        16: "Soraka", 17: "Teemo", 18: "Tristana", 19: "Warwick", 20: "Nunu",
+        21: "Miss Fortune", 22: "Ashe", 23: "Tryndamere", 24: "Jax", 25: "Morgana",
+        26: "Zilean", 27: "Singed", 28: "Evelynn", 29: "Twitch", 30: "Karthus",
+        31: "Cho'Gath", 32: "Amumu", 33: "Rammus", 34: "Anivia", 35: "Shaco",
+        36: "Dr. Mundo", 37: "Sona", 38: "Kassadin", 39: "Irelia", 40: "Janna",
+        41: "Gangplank", 42: "Corki", 43: "Karma", 44: "Taric", 45: "Veigar",
+        48: "Trundle", 50: "Swain", 51: "Caitlyn", 53: "Blitzcrank", 54: "Malphite",
+        55: "Katarina", 56: "Nocturne", 57: "Maokai", 58: "Renekton", 59: "Jarvan IV",
+        60: "Elise", 61: "Orianna", 62: "Wukong", 63: "Brand", 64: "Lee Sin",
+        67: "Vayne", 68: "Rumble", 69: "Cassiopeia", 72: "Skarner", 74: "Heimerdinger",
+        75: "Nasus", 76: "Nidalee", 77: "Udyr", 78: "Poppy", 79: "Gragas",
+        80: "Pantheon", 81: "Ezreal", 82: "Mordekaiser", 83: "Yorick", 84: "Akali",
+        85: "Kennen", 86: "Garen", 89: "Leona", 90: "Malzahar", 91: "Talon",
+        92: "Riven", 96: "Kog'Maw", 98: "Shen", 99: "Lux", 101: "Xerath",
+        102: "Shyvana", 103: "Ahri", 104: "Graves", 105: "Fizz", 106: "Volibear",
+        107: "Rengar", 110: "Varus", 111: "Nautilus", 112: "Viktor", 113: "Sejuani",
+        114: "Fiora", 115: "Ziggs", 117: "Lulu", 119: "Draven", 120: "Hecarim",
+        121: "Kha'Zix", 122: "Darius", 126: "Jayce", 127: "Lissandra", 131: "Diana",
+        133: "Quinn", 134: "Syndra", 136: "Aurelion Sol", 141: "Kayn", 142: "Zoe",
+        143: "Zyra", 145: "Kai'Sa", 147: "Seraphine", 150: "Gnar", 154: "Zac",
+        157: "Yasuo", 161: "Vel'Koz", 163: "Taliyah", 164: "Camille", 166: "Akshan",
+        200: "Bel'Veth", 201: "Braum", 202: "Jhin", 203: "Kindred", 221: "Zeri",
+        222: "Jinx", 223: "Tahm Kench", 234: "Viego", 235: "Senna", 236: "Lucian",
+        238: "Zed", 240: "Kled", 245: "Ekko", 246: "Qiyana", 254: "Vi",
+        266: "Aatrox", 267: "Nami", 268: "Azir", 350: "Yuumi", 360: "Samira",
+        412: "Thresh", 420: "Illaoi", 421: "Rek'Sai", 427: "Ivern", 429: "Kalista",
+        432: "Bard", 516: "Ornn", 517: "Sylas", 518: "Neeko", 523: "Aphelios",
+        526: "Rell", 555: "Pyke", 777: "Yone", 875: "Sett", 876: "Lillia",
+        887: "Gwen", 888: "Renata Glasc", 895: "Nilah", 897: "K'Sante", 901: "Smolder",
+        902: "Aurora", 950: "Naafiri", 910: "Hwei"
+    }
+    return champion_map.get(champion_id, f"Champion {champion_id}")
+
+def predict_match_outcome(team1, team2):
+    """Use AI to predict match outcome based on team compositions and player stats"""
+    try:
+        headers = {
+            'Authorization': f'Bearer {OPENROUTE_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+
+        # Prepare team data for AI analysis
+        team1_info = []
+        team2_info = []
+        
+        for player in team1:
+            rank_info = player['rank']
+            team1_info.append(f"{player['championName']} - {rank_info['tier']} {rank_info['rank']} ({rank_info['leaguePoints']} LP, {rank_info['wins']}W/{rank_info['losses']}L)")
+        
+        for player in team2:
+            rank_info = player['rank']
+            team2_info.append(f"{player['championName']} - {rank_info['tier']} {rank_info['rank']} ({rank_info['leaguePoints']} LP, {rank_info['wins']}W/{rank_info['losses']}L)")
+
+        team1_text = "\n".join(team1_info)
+        team2_text = "\n".join(team2_info)
+
+        payload = {
+            "model": "qwen/qwen-2.5-72b-instruct:free",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Jesteś ekspertem od League of Legends. Analizuj składy zespołów i przewiduj wynik meczu. Uwzględnij championów, rangi graczy, winrate, synergię zespołu. Odpowiedz w formacie JSON z szansami wygranej dla każdego zespołu (jako procent) oraz krótkim uzasadnieniem."
+                },
+                {
+                    "role": "user",
+                    "content": f"Przewidź wynik meczu między dwoma zespołami:\n\nDrużyna 1 (Niebieska):\n{team1_text}\n\nDrużyna 2 (Czerwona):\n{team2_text}\n\nPodaj przewidywanie w formacie JSON z kluczami: 'team1_win_chance', 'team2_win_chance', 'reasoning'"
+                }
+            ],
+            "max_tokens": 800,
+            "temperature": 0.3
+        }
+
+        response = requests.post(OPENROUTE_API_URL, headers=headers, json=payload)
+        if response.status_code == 200:
+            ai_response = response.json()['choices'][0]['message']['content']
+            # Try to extract JSON from response
+            import json
+            try:
+                # Look for JSON in the response
+                start = ai_response.find('{')
+                end = ai_response.rfind('}') + 1
+                if start != -1 and end != 0:
+                    prediction_data = json.loads(ai_response[start:end])
+                    return prediction_data
+            except json.JSONDecodeError:
+                pass
+            
+            # If JSON parsing fails, return the raw response
+            return {
+                'team1_win_chance': 50,
+                'team2_win_chance': 50,
+                'reasoning': ai_response
+            }
+        else:
+            return {
+                'team1_win_chance': 50,
+                'team2_win_chance': 50,
+                'reasoning': 'Nie udało się przewidzieć wyniku - błąd API'
+            }
+
+    except Exception as e:
+        print(f"Prediction error: {e}")
+        return {
+            'team1_win_chance': 50,
+            'team2_win_chance': 50,
+            'reasoning': f'Błąd przewidywania: {str(e)}'
+        }
+
 @app.route('/health')
 def health_check():
     return jsonify({'status': 'healthy'})
