@@ -64,71 +64,84 @@ async function loadSummonerData(riotId) {
         }
         
         // Update profile header
-        profileHeader.innerHTML = `
-            <div class="summoner-info">
-                <img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${data.summoner.profileIconId}.png" 
-                     alt="Profile Icon" class="summoner-avatar">
-                <div class="summoner-details">
-                    <h1>${data.summoner.gameName}<span class="tag-line">#${data.summoner.tagLine}</span></h1>
-                    <span class="summoner-level">Poziom ${data.summoner.level}</span>
+        if (profileHeader) {
+            profileHeader.innerHTML = `
+                <div class="summoner-info">
+                    <img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${data.summoner.profileIconId}.png" 
+                         alt="Profile Icon" class="summoner-avatar">
+                    <div class="summoner-details">
+                        <h1>${data.summoner.gameName}<span class="tag-line">#${data.summoner.tagLine}</span></h1>
+                        <span class="summoner-level">Poziom ${data.summoner.level}</span>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
         
         // Update rank info
         const rankInfo = document.getElementById('rankInfo');
-        rankInfo.innerHTML = `
-            <div class="rank-info">
-                <div class="rank-badge">
-                    <img src="https://opgg-static.akamaized.net/images/medals_new/${data.ranked.tier.toLowerCase()}.png" alt="${data.ranked.tier}">
-                    <div>${data.ranked.tier} ${data.ranked.rank}</div>
-                </div>
-                <div class="rank-details">
-                    <h4>${data.ranked.leaguePoints} LP</h4>
-                    <div class="rank-stats">
-                        <div class="stat-item">
-                            <div>${data.ranked.wins}W</div>
-                            <div>Wygrane</div>
-                        </div>
-                        <div class="stat-item">
-                            <div>${data.ranked.losses}L</div>
-                            <div>Przegrane</div>
-                        </div>
-                        <div class="stat-item">
-                            <div>${Math.round((data.ranked.wins / (data.ranked.wins + data.ranked.losses)) * 100)}%</div>
-                            <div>Winrate</div>
+        if (rankInfo) {
+            const winrate = (data.ranked.wins + data.ranked.losses) > 0 ? 
+                Math.round((data.ranked.wins / (data.ranked.wins + data.ranked.losses)) * 100) : 0;
+            
+            rankInfo.innerHTML = `
+                <div class="rank-info">
+                    <div class="rank-badge">
+                        <img src="https://opgg-static.akamaized.net/images/medals_new/${data.ranked.tier.toLowerCase()}.png" alt="${data.ranked.tier}">
+                        <div>${data.ranked.tier} ${data.ranked.rank}</div>
+                    </div>
+                    <div class="rank-details">
+                        <h4>${data.ranked.leaguePoints} LP</h4>
+                        <div class="rank-stats">
+                            <div class="stat-item">
+                                <div>${data.ranked.wins}W</div>
+                                <div>Wygrane</div>
+                            </div>
+                            <div class="stat-item">
+                                <div>${data.ranked.losses}L</div>
+                                <div>Przegrane</div>
+                            </div>
+                            <div class="stat-item">
+                                <div>${winrate}%</div>
+                                <div>Winrate</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
         
         // Update recent matches
         const matchesList = document.getElementById('matchesList');
-        matchesList.innerHTML = data.recentMatches.map(match => `
-            <div class="match-item">
-                <img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${match.champion}.png" 
-                     alt="${match.champion}" class="match-champion">
-                <div class="match-details">
-                    <div class="match-champion-name">${match.champion}</div>
-                    <div class="match-mode">${match.gameMode}</div>
+        if (matchesList && data.recentMatches) {
+            matchesList.innerHTML = data.recentMatches.map(match => `
+                <div class="match-item">
+                    <img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/champion/${match.champion}.png" 
+                         alt="${match.champion}" class="match-champion">
+                    <div class="match-details">
+                        <div class="match-champion-name">${match.champion}</div>
+                        <div class="match-mode">${match.gameMode}</div>
+                    </div>
+                    <div class="match-result ${match.result.toLowerCase()}">
+                        ${match.result}
+                    </div>
+                    <div class="match-kda">${match.kda}</div>
+                    <div class="match-duration">${match.duration}</div>
                 </div>
-                <div class="match-result ${match.result.toLowerCase()}">
-                    ${match.result}
-                </div>
-                <div class="match-kda">${match.kda}</div>
-                <div class="match-duration">${match.duration}</div>
-            </div>
-        `).join('');
+            `).join('');
+        }
         
         // Store match data for AI analysis
         window.currentSummonerData = data;
         
-        profileContent.style.display = 'block';
+        if (profileContent) {
+            profileContent.style.display = 'block';
+        }
         
     } catch (error) {
         console.error('Error loading summoner data:', error);
-        errorMessage.style.display = 'block';
+        if (errorMessage) {
+            errorMessage.style.display = 'block';
+        }
     }
 }
 
@@ -136,6 +149,11 @@ async function loadSummonerData(riotId) {
 async function requestAIAnalysis() {
     const analyzeBtn = document.getElementById('analyzeBtn');
     const analysisResult = document.getElementById('analysisResult');
+    
+    if (!analyzeBtn || !analysisResult) {
+        console.error('Required elements not found');
+        return;
+    }
     
     if (!window.currentSummonerData) {
         showNotification('Brak danych do analizy', 'error');
@@ -156,6 +174,14 @@ async function requestAIAnalysis() {
                 match_history: window.currentSummonerData.recentMatches
             })
         });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const textResponse = await response.text();
+            console.error('Non-JSON response:', textResponse);
+            throw new Error('Serwer zwrócił nieprawidłową odpowiedź');
+        }
         
         const data = await response.json();
         
