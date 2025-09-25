@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ summoner_name }} - Profil gracza | LoL Stats</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>LoL Stats</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/champions" class="nav-link">Champions</a></li>
+                <li><a href="/leaderboard" class="nav-link">Ranking</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="summoner-profile">
+        <div class="container">
+            <div class="profile-header" id="profileHeader">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Ładowanie danych gracza...</p>
+                </div>
+            </div>
+
+            <div class="profile-content" id="profileContent" style="display: none;">
+                <div class="stats-section">
+                    <div class="rank-card">
+                        <h3><i class="fas fa-trophy"></i> Ranking Solo/Duo</h3>
+                        <div class="rank-info" id="rankInfo"></div>
+                    </div>
+                    
+                    <div class="recent-matches">
+                        <h3><i class="fas fa-history"></i> Ostatnie mecze</h3>
+                        <div class="matches-list" id="matchesList"></div>
+                    </div>
+                </div>
+
+                <div class="ai-analysis-section">
+                    <div class="analysis-card">
+                        <h3><i class="fas fa-robot"></i> Analiza AI</h3>
+                        <button id="analyzeBtn" onclick="requestAIAnalysis()">
+                            <i class="fas fa-magic"></i>
+                            Analizuj wydajność gracza
+                        </button>
+                        <div class="analysis-result" id="analysisResult" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="error-message" id="errorMessage" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Gracz nie został znaleziony</h3>
+                <p>Sprawdź poprawność nazwy i spróbuj ponownie</p>
+                <a href="/" class="btn btn-primary">Powrót do wyszukiwarki</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const summonerName = "{{ summoner_name }}";
+        
+        // Load summoner data on page load
+        window.addEventListener('load', () => {
+            loadSummonerData(summonerName);
+        });
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -5,28 +5,93 @@ import os
 
 app = Flask(__name__)
 
-# Placeholder for OpenRoute AI configuration
-OPENROUTE_API_KEY = os.getenv('OPENROUTE_API_KEY', 'your-api-key-here')
+# Riot Games API configuration
+RIOT_API_KEY = os.getenv('RIOT_API_KEY', 'your-riot-api-key-here')
+OPENROUTE_API_KEY = os.getenv('OPENROUTE_API_KEY', 'your-openroute-api-key-here')
 OPENROUTE_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Riot API endpoints
+RIOT_BASE_URL = "https://euw1.api.riotgames.com"
+EUROPE_BASE_URL = "https://europe.api.riotgames.com"
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/analyze', methods=['POST'])
-def analyze_text():
+@app.route('/summoner/<summoner_name>')
+def summoner_profile(summoner_name):
+    return render_template('summoner.html', summoner_name=summoner_name)
+
+@app.route('/api/summoner/<summoner_name>')
+def get_summoner_data(summoner_name):
+    try:
+        # Get summoner basic info
+        summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-name/{summoner_name}"
+        headers = {'X-Riot-Token': RIOT_API_KEY}
+        
+        # Mock data for demonstration (replace with actual API calls when you have API key)
+        if RIOT_API_KEY == 'your-riot-api-key-here':
+            mock_data = {
+                'summoner': {
+                    'name': summoner_name,
+                    'level': 125,
+                    'profileIconId': 4873,
+                    'puuid': 'mock-puuid-12345'
+                },
+                'ranked': {
+                    'tier': 'GOLD',
+                    'rank': 'II',
+                    'leaguePoints': 65,
+                    'wins': 87,
+                    'losses': 72
+                },
+                'recentMatches': [
+                    {
+                        'champion': 'Jinx',
+                        'result': 'Victory',
+                        'kda': '12/3/8',
+                        'duration': '28:45',
+                        'gameMode': 'Ranked Solo'
+                    },
+                    {
+                        'champion': 'Caitlyn',
+                        'result': 'Defeat',
+                        'kda': '8/7/12',
+                        'duration': '35:20',
+                        'gameMode': 'Ranked Solo'
+                    }
+                ]
+            }
+            return jsonify(mock_data)
+        
+        # Actual API implementation (uncomment when you have API key)
+        # response = requests.get(summoner_url, headers=headers)
+        # if response.status_code != 200:
+        #     return jsonify({'error': 'Summoner not found'}), 404
+        # 
+        # summoner_data = response.json()
+        # ... implement actual API calls
+        
+        return jsonify({'error': 'API key not configured'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analyze-performance', methods=['POST'])
+def analyze_performance():
     try:
         data = request.get_json()
-        text_to_analyze = data.get('text', '')
+        summoner_name = data.get('summoner_name', '')
+        match_history = data.get('match_history', [])
         
-        if not text_to_analyze:
-            return jsonify({'error': 'No text provided'}), 400
+        if not summoner_name:
+            return jsonify({'error': 'No summoner name provided'}), 400
         
-        # Placeholder for AI analysis - you'll integrate your specific model here
-        analysis_result = analyze_with_ai(text_to_analyze)
+        # AI analysis of player performance
+        analysis_result = analyze_player_with_ai(summoner_name, match_history)
         
         return jsonify({
-            'original_text': text_to_analyze,
+            'summoner_name': summoner_name,
             'analysis': analysis_result,
             'status': 'success'
         })
@@ -34,10 +99,9 @@ def analyze_text():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def analyze_with_ai(text):
+def analyze_player_with_ai(summoner_name, match_history):
     """
-    Placeholder function for AI analysis
-    Replace this with your specific OpenRoute AI model integration
+    AI analysis of player performance using OpenRoute AI
     """
     try:
         headers = {
@@ -45,30 +109,70 @@ def analyze_with_ai(text):
             'Content-Type': 'application/json'
         }
         
+        # Prepare match data for analysis
+        matches_text = "\n".join([
+            f"Champion: {match.get('champion', 'Unknown')}, "
+            f"Result: {match.get('result', 'Unknown')}, "
+            f"KDA: {match.get('kda', 'Unknown')}, "
+            f"Duration: {match.get('duration', 'Unknown')}"
+            for match in match_history
+        ])
+        
         payload = {
-            "model": "your-model-name",  # Replace with your specific model
+            "model": "microsoft/wizardlm-2-8x22b",  # You can change this to your preferred model
             "messages": [
                 {
+                    "role": "system",
+                    "content": "You are a professional League of Legends coach and analyst. Analyze the player's performance and provide constructive feedback, strengths, weaknesses, and improvement suggestions."
+                },
+                {
                     "role": "user",
-                    "content": f"Analyze this text: {text}"
+                    "content": f"Analyze the performance of summoner '{summoner_name}' based on their recent matches:\n\n{matches_text}\n\nProvide detailed analysis including strengths, weaknesses, and specific improvement recommendations."
                 }
             ],
-            "max_tokens": 1000,
+            "max_tokens": 1500,
             "temperature": 0.7
         }
         
-        # Uncomment when you have your API key and model
+        # Uncomment when you have your API key
         # response = requests.post(OPENROUTE_API_URL, headers=headers, json=payload)
         # if response.status_code == 200:
         #     return response.json()['choices'][0]['message']['content']
         # else:
         #     return f"Error: {response.status_code}"
         
-        # Temporary mock response
-        return f"Mock analysis for: '{text}' - Replace this with actual AI integration"
+        # Mock analysis for demonstration
+        return f"""
+🎯 **Analiza wydajności dla {summoner_name}**
+
+**Mocne strony:**
+• Dobra kontrola damage'u - średnie KDA powyżej 2.0
+• Solidny wybór championów (ADC main)
+• Konsystentność w grze
+
+**Obszary do poprawy:**
+• Pozycjonowanie w team fightach
+• Vision control - więcej wardów
+• Farming w późnej grze
+
+**Rekomendacje:**
+1. Pracuj nad pozycjonowaniem - trzymaj się z tyłu w starciach
+2. Kup więcej Control Wardów (cel: 2-3 na grę)
+3. Trenuj last-hitting w Practice Tool
+
+**Ogólna ocena:** 7.5/10 - Solidny gracz z potencjałem na awans!
+        """
         
     except Exception as e:
-        return f"Analysis error: {str(e)}"
+        return f"Błąd analizy: {str(e)}"
+
+@app.route('/champions')
+def champions():
+    return render_template('champions.html')
+
+@app.route('/leaderboard')
+def leaderboard():
+    return render_template('leaderboard.html')
 
 @app.route('/health')
 def health_check():

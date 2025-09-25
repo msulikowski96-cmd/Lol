@@ -4,53 +4,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Text Analyzer</title>
+    <title>LoL Stats Analyzer - Analiza graczy League of Legends</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🤖 AI Text Analyzer</h1>
-            <p>Analizuj tekst za pomocą zaawansowanego modelu AI</p>
-        </header>
-        
-        <main>
-            <div class="input-section">
-                <h2>Wprowadź tekst do analizy</h2>
-                <textarea id="textInput" placeholder="Wklej tutaj tekst do analizy..." rows="8"></textarea>
-                <div class="button-group">
-                    <button id="analyzeBtn" onclick="analyzeText()">Analizuj tekst</button>
-                    <button id="clearBtn" onclick="clearText()">Wyczyść</button>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>LoL Stats</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link active">Home</a></li>
+                <li><a href="/champions" class="nav-link">Champions</a></li>
+                <li><a href="/leaderboard" class="nav-link">Ranking</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1><i class="fas fa-trophy"></i> League of Legends Stats</h1>
+            <p>Analizuj wydajność graczy i poprawiaj swoją grę z pomocą AI</p>
+            
+            <div class="search-container">
+                <div class="search-box">
+                    <input type="text" id="summonerInput" placeholder="Wpisz nazwę przywoływacza..." maxlength="16">
+                    <select id="regionSelect">
+                        <option value="euw1">EUW</option>
+                        <option value="eune1">EUNE</option>
+                        <option value="na1">NA</option>
+                        <option value="kr">KR</option>
+                    </select>
+                    <button id="searchBtn" onclick="searchSummoner()">
+                        <i class="fas fa-search"></i>
+                        Szukaj
+                    </button>
+                </div>
+                <div class="search-suggestions">
+                    <span>Popularne wyszukiwania:</span>
+                    <a href="#" onclick="searchSpecific('Faker')">Faker</a>
+                    <a href="#" onclick="searchSpecific('Caps')">Caps</a>
+                    <a href="#" onclick="searchSpecific('Jankos')">Jankos</a>
                 </div>
             </div>
-            
-            <div class="results-section" id="resultsSection" style="display: none;">
-                <h2>Wyniki analizy</h2>
-                <div class="result-card">
-                    <h3>Oryginalny tekst:</h3>
-                    <div id="originalText" class="original-text"></div>
-                </div>
-                <div class="result-card">
-                    <h3>Analiza AI:</h3>
-                    <div id="analysisResult" class="analysis-result"></div>
-                </div>
-            </div>
-            
-            <div class="loading" id="loading" style="display: none;">
-                <div class="spinner"></div>
-                <p>Analizuję tekst...</p>
-            </div>
-            
-            <div class="error" id="error" style="display: none;">
-                <p id="errorMessage"></p>
-            </div>
-        </main>
-        
-        <footer>
-            <p>Powered by OpenRoute AI</p>
-        </footer>
+        </div>
     </div>
-    
+
+    <div class="features-section">
+        <div class="container">
+            <h2>Funkcje platformy</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Statystyki rankingowe</h3>
+                    <p>Szczegółowe statystyki rankingowe, LP, winrate i historia meczów</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-robot"></i>
+                    <h3>Analiza AI</h3>
+                    <p>Zaawansowana analiza wydajności z rekomendacjami poprawy gry</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-users"></i>
+                    <h3>Porównanie graczy</h3>
+                    <p>Porównuj statystyki z innymi graczami w twoim rangu</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-star"></i>
+                    <h3>Champion Mastery</h3>
+                    <p>Sprawdź poziom opanowania championów i najlepsze buildy</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="recent-searches" id="recentSearches" style="display: none;">
+        <div class="container">
+            <h3>Ostatnie wyszukiwania</h3>
+            <div class="recent-list" id="recentList"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 LoL Stats Analyzer. Powered by Riot Games API & OpenRoute AI</p>
+            <p class="disclaimer">LoL Stats Analyzer nie jest afiliowany z Riot Games. League of Legends jest znakiem towarowym Riot Games, Inc.</p>
+        </div>
+    </footer>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
