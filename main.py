@@ -18,22 +18,30 @@ EUROPE_BASE_URL = "https://europe.api.riotgames.com"
 def index():
     return render_template('index.html')
 
-@app.route('/summoner/<summoner_name>')
-def summoner_profile(summoner_name):
-    return render_template('summoner.html', summoner_name=summoner_name)
+@app.route('/summoner/<path:riot_id>')
+def summoner_profile(riot_id):
+    return render_template('summoner.html', riot_id=riot_id)
 
-@app.route('/api/summoner/<summoner_name>')
-def get_summoner_data(summoner_name):
+@app.route('/api/summoner/<path:riot_id>')
+def get_summoner_data(riot_id):
     try:
-        # Get summoner basic info
-        summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-name/{summoner_name}"
+        # Parse gamename and tag from riot_id (format: gamename#tag)
+        if '#' not in riot_id:
+            return jsonify({'error': 'Invalid Riot ID format. Use gamename#tag'}), 400
+        
+        gamename, tag = riot_id.split('#', 1)
+        
+        # Get account info using Riot ID (gamename + tag)
+        account_url = f"{EUROPE_BASE_URL}/riot/account/v1/accounts/by-riot-id/{gamename}/{tag}"
         headers = {'X-Riot-Token': RIOT_API_KEY}
         
         # Mock data for demonstration (replace with actual API calls when you have API key)
         if RIOT_API_KEY == 'your-riot-api-key-here':
             mock_data = {
                 'summoner': {
-                    'name': summoner_name,
+                    'gameName': gamename,
+                    'tagLine': tag,
+                    'riotId': riot_id,
                     'level': 125,
                     'profileIconId': 4873,
                     'puuid': 'mock-puuid-12345'
@@ -65,12 +73,22 @@ def get_summoner_data(summoner_name):
             return jsonify(mock_data)
         
         # Actual API implementation (uncomment when you have API key)
-        # response = requests.get(summoner_url, headers=headers)
-        # if response.status_code != 200:
+        # # Get account by Riot ID
+        # account_response = requests.get(account_url, headers=headers)
+        # if account_response.status_code != 200:
+        #     return jsonify({'error': 'Account not found'}), 404
+        # 
+        # account_data = account_response.json()
+        # puuid = account_data['puuid']
+        # 
+        # # Get summoner info by PUUID
+        # summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-puuid/{puuid}"
+        # summoner_response = requests.get(summoner_url, headers=headers)
+        # if summoner_response.status_code != 200:
         #     return jsonify({'error': 'Summoner not found'}), 404
         # 
-        # summoner_data = response.json()
-        # ... implement actual API calls
+        # summoner_data = summoner_response.json()
+        # ... implement ranked data and match history calls
         
         return jsonify({'error': 'API key not configured'}), 500
         

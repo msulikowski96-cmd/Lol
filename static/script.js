@@ -2,30 +2,35 @@
 // Search functionality
 function searchSummoner() {
     const summonerInput = document.getElementById('summonerInput');
-    const summonerName = summonerInput.value.trim();
+    const riotId = summonerInput.value.trim();
     
-    if (!summonerName) {
-        showNotification('Wprowadź nazwę przywoływacza', 'error');
+    if (!riotId) {
+        showNotification('Wprowadź Riot ID (nazwa#tag)', 'error');
+        return;
+    }
+    
+    if (!riotId.includes('#')) {
+        showNotification('Nieprawidłowy format. Użyj: nazwa#tag (np. Player#EUW)', 'error');
         return;
     }
     
     // Add to recent searches
-    addToRecentSearches(summonerName);
+    addToRecentSearches(riotId);
     
     // Redirect to summoner profile
-    window.location.href = `/summoner/${encodeURIComponent(summonerName)}`;
+    window.location.href = `/summoner/${encodeURIComponent(riotId)}`;
 }
 
-function searchSpecific(summonerName) {
-    document.getElementById('summonerInput').value = summonerName;
+function searchSpecific(riotId) {
+    document.getElementById('summonerInput').value = riotId;
     searchSummoner();
 }
 
 // Recent searches functionality
-function addToRecentSearches(summonerName) {
+function addToRecentSearches(riotId) {
     let recent = JSON.parse(localStorage.getItem('recentSearches') || '[]');
-    recent = recent.filter(name => name.toLowerCase() !== summonerName.toLowerCase());
-    recent.unshift(summonerName);
+    recent = recent.filter(id => id.toLowerCase() !== riotId.toLowerCase());
+    recent.unshift(riotId);
     recent = recent.slice(0, 5); // Keep only 5 recent searches
     localStorage.setItem('recentSearches', JSON.stringify(recent));
     updateRecentSearchesUI();
@@ -45,13 +50,13 @@ function updateRecentSearchesUI() {
 }
 
 // Load summoner data
-async function loadSummonerData(summonerName) {
+async function loadSummonerData(riotId) {
     const profileHeader = document.getElementById('profileHeader');
     const profileContent = document.getElementById('profileContent');
     const errorMessage = document.getElementById('errorMessage');
     
     try {
-        const response = await fetch(`/api/summoner/${encodeURIComponent(summonerName)}`);
+        const response = await fetch(`/api/summoner/${encodeURIComponent(riotId)}`);
         const data = await response.json();
         
         if (!response.ok) {
@@ -64,7 +69,7 @@ async function loadSummonerData(summonerName) {
                 <img src="https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${data.summoner.profileIconId}.png" 
                      alt="Profile Icon" class="summoner-avatar">
                 <div class="summoner-details">
-                    <h1>${data.summoner.name}</h1>
+                    <h1>${data.summoner.gameName}<span class="tag-line">#${data.summoner.tagLine}</span></h1>
                     <span class="summoner-level">Poziom ${data.summoner.level}</span>
                 </div>
             </div>
@@ -147,7 +152,7 @@ async function requestAIAnalysis() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                summoner_name: window.currentSummonerData.summoner.name,
+                summoner_name: window.currentSummonerData.summoner.riotId,
                 match_history: window.currentSummonerData.recentMatches
             })
         });
