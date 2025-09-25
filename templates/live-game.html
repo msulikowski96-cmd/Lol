@@ -402,7 +402,14 @@
                 .catch(error => {
                     console.error('Error loading live game:', error);
                     document.getElementById('loadingSection').style.display = 'none';
-                    document.getElementById('notInGameSection').style.display = 'block';
+                    const notInGameSection = document.getElementById('notInGameSection');
+                    notInGameSection.style.display = 'block';
+                    
+                    // Update error message
+                    const messageElement = notInGameSection.querySelector('h3');
+                    const descElement = notInGameSection.querySelector('p');
+                    messageElement.textContent = 'Błąd połączenia';
+                    descElement.innerHTML = 'Nie można sprawdzić stanu gry na żywo. Spróbuj ponownie później.';
                 });
         }
 
