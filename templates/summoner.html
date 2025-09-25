@@ -18,6 +18,7 @@
                 <li><a href="/" class="nav-link">Home</a></li>
                 <li><a href="/champions" class="nav-link">Champions</a></li>
                 <li><a href="/leaderboard" class="nav-link">Ranking</a></li>
+                <li><a href="/live-game/{{ riot_id }}" class="nav-link">🔴 Live Game</a></li>
             </ul>
         </div>
     </nav>
@@ -47,10 +48,16 @@
                 <div class="ai-analysis-section">
                     <div class="analysis-card">
                         <h3><i class="fas fa-robot"></i> Analiza AI</h3>
-                        <button id="analyzeBtn" onclick="requestAIAnalysis()">
-                            <i class="fas fa-magic"></i>
-                            Analizuj wydajność gracza
-                        </button>
+                        <div style="margin-bottom: 15px;">
+                            <a href="/live-game/{{ riot_id }}" class="btn btn-live" style="background: #e74c3c; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; margin-right: 10px;">
+                                <i class="fas fa-play-circle"></i>
+                                Live Game
+                            </a>
+                            <button id="analyzeBtn" onclick="requestAIAnalysis()">
+                                <i class="fas fa-magic"></i>
+                                Analizuj wydajność gracza
+                            </button>
+                        </div>
                         <div class="analysis-result" id="analysisResult" style="display: none;"></div>
                     </div>
                 </div>
