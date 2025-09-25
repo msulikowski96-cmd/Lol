@@ -21,6 +21,10 @@ def index():
 def summoner_profile(riot_id):
     return render_template('summoner.html', riot_id=riot_id)
 
+@app.route('/live-game/<path:riot_id>')
+def live_game_view(riot_id):
+    return render_template('live-game.html', riot_id=riot_id)
+
 @app.route('/api/summoner/<path:riot_id>')
 def get_summoner_data(riot_id):
     try:
