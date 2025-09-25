@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 import requests
 import os
+import time
 
 app = Flask(__name__)
 
@@ -310,14 +311,17 @@ def get_live_game(riot_id):
             live_response = requests.get(live_game_url, headers=headers)
             print(f"Tried summoner ID approach, status: {live_response.status_code}")
         
-        # If no summoner ID or if summoner ID approach failed, try V5 API with PUUID
-        if not summoner_id or (live_response and live_response.status_code != 200):
+        # Try spectator APIs, but handle permission errors gracefully
+        if not summoner_id or (live_response and live_response.status_code not in [200, 404]):
             print(f"Trying V5 API with PUUID...")
             live_game_url_v5 = f"{RIOT_BASE_URL}/lol/spectator/v5/active-games/by-puuid/{puuid}"
             live_response_v5 = requests.get(live_game_url_v5, headers=headers)
             print(f"V5 API status: {live_response_v5.status_code}")
             if live_response_v5.status_code in [200, 404]:
                 live_response = live_response_v5
+            elif live_response_v5.status_code == 403:
+                print("Spectator API access denied - using fallback method")
+                return create_fallback_live_game_response(puuid, account_data)
             else:
                 print(f"V5 API failed, trying different region...")
                 # Try with different base URL (some endpoints might be on different servers)
@@ -326,18 +330,27 @@ def get_live_game(riot_id):
                 print(f"Europe V5 API status: {live_response_europe.status_code}")
                 if live_response_europe.status_code in [200, 404]:
                     live_response = live_response_europe
+                elif live_response_europe.status_code == 403:
+                    print("Spectator API access denied - using fallback method")
+                    return create_fallback_live_game_response(puuid, account_data)
                 else:
                     # Last resort: try older endpoint formats
                     live_game_url_alt = f"{RIOT_BASE_URL}/lol/spectator/v4/active-games/by-puuid/{puuid}"
                     live_response_alt = requests.get(live_game_url_alt, headers=headers)
                     print(f"Alternative API status: {live_response_alt.status_code}")
+                    if live_response_alt.status_code == 403:
+                        print("All spectator APIs denied - using fallback method")
+                        return create_fallback_live_game_response(puuid, account_data)
                     live_response = live_response_alt
 
         # Check if we have a valid response
         if not live_response:
             return jsonify({'error': 'Could not connect to live game API'}), 500
 
-        if live_response.status_code == 404:
+        if live_response.status_code == 403:
+            print("Spectator API access denied - using fallback method")
+            return create_fallback_live_game_response(puuid, account_data)
+        elif live_response.status_code == 404:
             return jsonify({'inGame': False, 'message': 'Player not in game'}), 200
         elif live_response.status_code != 200:
             return jsonify({'error': f'API error: {live_response.status_code}'}), 500
@@ -444,6 +457,57 @@ def get_champion_name(champion_id):
         902: "Aurora", 950: "Naafiri", 910: "Hwei"
     }
     return champion_map.get(champion_id, f"Champion {champion_id}")
+
+def create_fallback_live_game_response(puuid, account_data):
+    """Create a fallback response when spectator API is not available"""
+    try:
+        # Check recent games to estimate if player might be in a game
+        # This is an approximation since we can't access live game data
+        headers = {'X-Riot-Token': RIOT_API_KEY}
+        
+        # Get very recent matches to see activity
+        recent_matches_url = f"{EUROPE_BASE_URL}/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=3"
+        recent_response = requests.get(recent_matches_url, headers=headers)
+        
+        if recent_response.status_code == 200:
+            match_ids = recent_response.json()
+            if match_ids:
+                # Get the most recent match details
+                latest_match_url = f"{EUROPE_BASE_URL}/lol/match/v5/matches/{match_ids[0]}"
+                match_response = requests.get(latest_match_url, headers=headers)
+                
+                if match_response.status_code == 200:
+                    match_data = match_response.json()
+                    game_end_timestamp = match_data['info']['gameEndTimestamp']
+                    current_timestamp = int(time.time() * 1000)
+                    time_since_game = current_timestamp - game_end_timestamp
+                    
+                    # If last game ended less than 5 minutes ago, player might be in queue/loading
+                    if time_since_game < 300000:  # 5 minutes in milliseconds
+                        return jsonify({
+                            'inGame': 'unknown',
+                            'message': 'Live Game API não disponível',
+                            'fallbackInfo': {
+                                'lastGameEndedMinutesAgo': round(time_since_game / 60000, 1),
+                                'suggestion': f'Ostatnia gra gracza {account_data["gameName"]} zakończyła się {round(time_since_game / 60000, 1)} minut temu. Gracz może być w kolejce lub nowej grze.',
+                                'note': 'Live Game tracking wymaga uprawnień produkcyjnych API od Riot Games'
+                            }
+                        })
+        
+        return jsonify({
+            'inGame': False, 
+            'message': 'Live Game API niedostępne - wymaga uprawnień produkcyjnych',
+            'fallbackInfo': {
+                'note': 'Funkcja Live Game wymaga specjalnych uprawnień od Riot Games API',
+                'available': 'Sprawdź profil gracza, aby zobaczyć ostatnie mecze'
+            }
+        })
+    except Exception as e:
+        print(f"Fallback error: {e}")
+        return jsonify({
+            'inGame': False, 
+            'message': 'Nie można sprawdzić stanu gry na żywo'
+        })
 
 def predict_match_outcome(team1, team2):
     """Use AI to predict match outcome based on team compositions and player stats"""

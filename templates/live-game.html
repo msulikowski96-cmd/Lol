@@ -353,8 +353,30 @@
                 .then(data => {
                     document.getElementById('loadingSection').style.display = 'none';
                     
-                    if (!data.inGame) {
-                        document.getElementById('notInGameSection').style.display = 'block';
+                    if (!data.inGame || data.inGame === false) {
+                        const notInGameSection = document.getElementById('notInGameSection');
+                        notInGameSection.style.display = 'block';
+                        
+                        // Update message if fallback info is available
+                        if (data.fallbackInfo) {
+                            const messageElement = notInGameSection.querySelector('h3');
+                            const descElement = notInGameSection.querySelector('p');
+                            
+                            if (data.inGame === 'unknown') {
+                                messageElement.textContent = 'Live Game Status Nieznany';
+                                descElement.innerHTML = `
+                                    <strong>${data.fallbackInfo.suggestion}</strong><br>
+                                    <small>${data.fallbackInfo.note}</small>
+                                `;
+                            } else {
+                                messageElement.textContent = 'Live Game Niedostępny';
+                                descElement.innerHTML = `
+                                    ${data.message}<br>
+                                    <small>${data.fallbackInfo.note}</small><br>
+                                    <em>Sprawdź ostatnie mecze w profilu gracza</em>
+                                `;
+                            }
+                        }
                         return;
                     }
                     
