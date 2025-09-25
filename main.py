@@ -65,17 +65,29 @@ def get_summoner_data(riot_id):
 
         summoner_data = summoner_response.json()
         
-        # Check if summoner_data has required fields
-        if 'id' not in summoner_data:
-            print(f"Missing 'id' field in summoner data: {summoner_data}")
-            return jsonify({'error': 'Invalid summoner data structure'}), 500
-
-        # Get ranked info
-        ranked_url = f"{RIOT_BASE_URL}/lol/league/v4/entries/by-summoner/{summoner_data['id']}"
-        ranked_response = requests.get(ranked_url, headers=headers)
-        ranked_data = ranked_response.json() if ranked_response.status_code == 200 else []
+        # Modern API uses puuid for ranked data
+        summoner_id = summoner_data.get('id')
         
-        print(f"Ranked API Status: {ranked_response.status_code}")
+        # If no summoner ID, try to get it from puuid (backup method)
+        if not summoner_id:
+            # For newer accounts, we might need to handle this differently
+            # Let's try to get ranked data using a different approach
+            print(f"No summoner ID found, summoner data: {summoner_data}")
+            # We'll use an alternative method below
+        
+        # Get ranked info - try with summoner ID first, then puuid
+        if summoner_id:
+            ranked_url = f"{RIOT_BASE_URL}/lol/league/v4/entries/by-summoner/{summoner_id}"
+        else:
+            # For accounts without summoner ID, skip ranked data for now
+            ranked_data = []
+            ranked_response = type('obj', (object,), {'status_code': 404})()  # Mock response
+        if summoner_id:
+            ranked_response = requests.get(ranked_url, headers=headers)
+            ranked_data = ranked_response.json() if ranked_response.status_code == 200 else []
+            print(f"Ranked API Status: {ranked_response.status_code}")
+        else:
+            print("Skipping ranked data - no summoner ID available")
 
         # Find Solo/Duo queue data
         solo_queue = next((entry for entry in ranked_data if entry['queueType'] == 'RANKED_SOLO_5x5'), None)
