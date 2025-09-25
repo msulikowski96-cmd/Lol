@@ -179,29 +179,32 @@ def analyze_player_with_ai(summoner_name, match_history):
         ])
 
         payload = {
-            "model": "microsoft/wizardlm-2-8x22b",  # You can change this to your preferred model
+            "model": "qwen/qwen-2.5-72b-instruct:free",
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a professional League of Legends coach and analyst. Analyze the player's performance and provide constructive feedback, strengths, weaknesses, and improvement suggestions."
+                    "content": "Jesteś profesjonalnym trenerem i analitykiem League of Legends. Analizuj wydajność gracza i podawaj konstruktywne opinie, mocne strony, słabości i sugestie poprawy. Odpowiadaj w języku polskim."
                 },
                 {
                     "role": "user",
-                    "content": f"Analyze the performance of summoner '{summoner_name}' based on their recent matches:\n\n{matches_text}\n\nProvide detailed analysis including strengths, weaknesses, and specific improvement recommendations."
+                    "content": f"Przeanalizuj wydajność gracza '{summoner_name}' na podstawie jego ostatnich meczów:\n\n{matches_text}\n\nPodaj szczegółową analizę obejmującą mocne strony, słabości i konkretne rekomendacje poprawy."
                 }
             ],
             "max_tokens": 1500,
             "temperature": 0.7
         }
 
-        # Uncomment when you have your API key
-        # response = requests.post(OPENROUTE_API_URL, headers=headers, json=payload)
-        # if response.status_code == 200:
-        #     return response.json()['choices'][0]['message']['content']
-        # else:
-        #     return f"Error: {response.status_code}"
-
-        # Mock analysis for demonstration
+        # Real AI analysis using Qwen model
+        try:
+            response = requests.post(OPENROUTE_API_URL, headers=headers, json=payload)
+            if response.status_code == 200:
+                return response.json()['choices'][0]['message']['content']
+            else:
+                print(f"API Error: {response.status_code}, {response.text}")
+                return f"Błąd API: {response.status_code}. Sprawdź klucz API."
+        except Exception as e:
+            print(f"Request error: {e}")
+            # Fallback to mock analysis if API fails
         return f"""
 🎯 **Analiza wydajności dla {summoner_name}**
 
