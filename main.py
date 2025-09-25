@@ -78,15 +78,12 @@ def get_summoner_data(riot_id):
         # Get ranked info - try with summoner ID first, then puuid
         if summoner_id:
             ranked_url = f"{RIOT_BASE_URL}/lol/league/v4/entries/by-summoner/{summoner_id}"
-        else:
-            # For accounts without summoner ID, skip ranked data for now
-            ranked_data = []
-            ranked_response = type('obj', (object,), {'status_code': 404})()  # Mock response
-        if summoner_id:
             ranked_response = requests.get(ranked_url, headers=headers)
             ranked_data = ranked_response.json() if ranked_response.status_code == 200 else []
             print(f"Ranked API Status: {ranked_response.status_code}")
         else:
+            # For accounts without summoner ID, skip ranked data for now
+            ranked_data = []
             print("Skipping ranked data - no summoner ID available")
 
         # Find Solo/Duo queue data
