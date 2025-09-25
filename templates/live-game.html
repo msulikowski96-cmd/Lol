@@ -345,7 +345,10 @@
             document.getElementById('notInGameSection').style.display = 'none';
             document.getElementById('gameSection').style.display = 'none';
             
-            fetch(`/api/live-game/${encodeURIComponent(riotId)}`)
+            // Ensure proper riot ID format (gamename#tag)
+            const properRiotId = riotId.includes('#') ? riotId : `${riotId}#EUW`;
+            console.log('Fetching live game for:', properRiotId);
+            fetch(`/api/live-game/${encodeURIComponent(properRiotId)}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('loadingSection').style.display = 'none';

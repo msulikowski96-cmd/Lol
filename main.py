@@ -274,13 +274,64 @@ def get_live_game(riot_id):
 
         summoner_data = summoner_response.json()
         summoner_id = summoner_data.get('id')
-
+        
+        # Add detailed debugging
+        print(f"Summoner response keys: {list(summoner_data.keys())}")
+        print(f"Full summoner data: {summoner_data}")
+        
+        # Check if summoner ID is in different field
+        summoner_id = summoner_data.get('id') or summoner_data.get('accountId') or summoner_data.get('summonerId')
+        
+        # For newer accounts that don't have summoner ID, try to get it differently
         if not summoner_id:
-            return jsonify({'inGame': False, 'message': 'Cannot check live game status'}), 200
+            print(f"No summoner ID in original response, trying alternative methods...")
+            # The same endpoint should return id, but let's try explicitly
+            print(f"Trying summoner API again explicitly...")
+            summoner_by_puuid_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-puuid/{puuid}"
+            print(f"Summoner by PUUID URL: {summoner_by_puuid_url}")
+            summoner_by_puuid_response = requests.get(summoner_by_puuid_url, headers=headers)
+            print(f"Summoner by PUUID response status: {summoner_by_puuid_response.status_code}")
+            print(f"Summoner by PUUID response: {summoner_by_puuid_response.text}")
+            if summoner_by_puuid_response.status_code == 200:
+                summoner_by_puuid_data = summoner_by_puuid_response.json()
+                summoner_id = summoner_by_puuid_data.get('id')
+                print(f"Summoner by PUUID data keys: {list(summoner_by_puuid_data.keys())}")
+                if summoner_id:
+                    print(f"Found summoner ID via PUUID: {summoner_id}")
+                else:
+                    print(f"Still no summoner ID found, full data: {summoner_by_puuid_data}")
 
-        # Check for active game
-        live_game_url = f"{RIOT_BASE_URL}/lol/spectator/v4/active-games/by-summoner/{summoner_id}"
-        live_response = requests.get(live_game_url, headers=headers)
+        # Try multiple approaches to check for active game
+        live_response = None
+        
+        # First try with summoner ID if available
+        if summoner_id:
+            live_game_url = f"{RIOT_BASE_URL}/lol/spectator/v4/active-games/by-summoner/{summoner_id}"
+            live_response = requests.get(live_game_url, headers=headers)
+            print(f"Tried summoner ID approach, status: {live_response.status_code}")
+        
+        # If no summoner ID or if summoner ID approach failed, try V5 API with PUUID
+        if not summoner_id or live_response.status_code != 200:
+            print(f"Trying V5 API with PUUID...")
+            live_game_url_v5 = f"{RIOT_BASE_URL}/lol/spectator/v5/active-games/by-puuid/{puuid}"
+            live_response_v5 = requests.get(live_game_url_v5, headers=headers)
+            print(f"V5 API status: {live_response_v5.status_code}")
+            if live_response_v5.status_code in [200, 404]:
+                live_response = live_response_v5
+            else:
+                print(f"V5 API failed, trying different region...")
+                # Try with different base URL (some endpoints might be on different servers)
+                live_game_url_europe = f"{EUROPE_BASE_URL}/lol/spectator/v5/active-games/by-puuid/{puuid}"
+                live_response_europe = requests.get(live_game_url_europe, headers=headers)
+                print(f"Europe V5 API status: {live_response_europe.status_code}")
+                if live_response_europe.status_code in [200, 404]:
+                    live_response = live_response_europe
+                else:
+                    # Last resort: try older endpoint formats
+                    live_game_url_alt = f"{RIOT_BASE_URL}/lol/spectator/v4/active-games/by-puuid/{puuid}"
+                    live_response_alt = requests.get(live_game_url_alt, headers=headers)
+                    print(f"Alternative API status: {live_response_alt.status_code}")
+                    live_response = live_response_alt
 
         if live_response.status_code == 404:
             return jsonify({'inGame': False, 'message': 'Player not in game'}), 200
