@@ -35,62 +35,74 @@ def get_summoner_data(riot_id):
         account_url = f"{EUROPE_BASE_URL}/riot/account/v1/accounts/by-riot-id/{gamename}/{tag}"
         headers = {'X-Riot-Token': RIOT_API_KEY}
         
-        # Mock data for demonstration (replace with actual API calls when you have API key)
-        if RIOT_API_KEY == 'your-riot-api-key-here':
-            mock_data = {
-                'summoner': {
-                    'gameName': gamename,
-                    'tagLine': tag,
-                    'riotId': riot_id,
-                    'level': 125,
-                    'profileIconId': 4873,
-                    'puuid': 'mock-puuid-12345'
-                },
-                'ranked': {
-                    'tier': 'GOLD',
-                    'rank': 'II',
-                    'leaguePoints': 65,
-                    'wins': 87,
-                    'losses': 72
-                },
-                'recentMatches': [
-                    {
-                        'champion': 'Jinx',
-                        'result': 'Victory',
-                        'kda': '12/3/8',
-                        'duration': '28:45',
-                        'gameMode': 'Ranked Solo'
-                    },
-                    {
-                        'champion': 'Caitlyn',
-                        'result': 'Defeat',
-                        'kda': '8/7/12',
-                        'duration': '35:20',
-                        'gameMode': 'Ranked Solo'
-                    }
-                ]
-            }
-            return jsonify(mock_data)
+        # Get account by Riot ID
+        account_response = requests.get(account_url, headers=headers)
+        if account_response.status_code != 200:
+            if account_response.status_code == 404:
+                return jsonify({'error': 'Account not found'}), 404
+            return jsonify({'error': f'API Error: {account_response.status_code}'}), 500
         
-        # Actual API implementation (uncomment when you have API key)
-        # # Get account by Riot ID
-        # account_response = requests.get(account_url, headers=headers)
-        # if account_response.status_code != 200:
-        #     return jsonify({'error': 'Account not found'}), 404
-        # 
-        # account_data = account_response.json()
-        # puuid = account_data['puuid']
-        # 
-        # # Get summoner info by PUUID
-        # summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-puuid/{puuid}"
-        # summoner_response = requests.get(summoner_url, headers=headers)
-        # if summoner_response.status_code != 200:
-        #     return jsonify({'error': 'Summoner not found'}), 404
-        # 
-        # summoner_data = summoner_response.json()
-        # ... implement ranked data and match history calls
+        account_data = account_response.json()
+        puuid = account_data['puuid']
         
-        return jsonify({'error': 'API key not configured'}), 500
+        # Get summoner info by PUUID
+        summoner_url = f"{RIOT_BASE_URL}/lol/summoner/v4/summoners/by-puuid/{puuid}"
+        summoner_response = requests.get(summoner_url, headers=headers)
+        if summoner_response.status_code != 200:
+            return jsonify({'error': 'Summoner not found'}), 404
+        
+        summoner_data = summoner_response.json()
+        
+        # Get ranked info
+        ranked_url = f"{RIOT_BASE_URL}/lol/league/v4/entries/by-summoner/{summoner_data['id']}"
+        ranked_response = requests.get(ranked_url, headers=headers)
+        ranked_data = ranked_response.json() if ranked_response.status_code == 200 else []
+        
+        # Find Solo/Duo queue data
+        solo_queue = next((entry for entry in ranked_data if entry['queueType'] == 'RANKED_SOLO_5x5'), None)
+        
+        # Get recent matches
+        matches_url = f"{EUROPE_BASE_URL}/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=10"
+        matches_response = requests.get(matches_url, headers=headers)
+        match_ids = matches_response.json() if matches_response.status_code == 200 else []
+        
+        recent_matches = []
+        for match_id in match_ids[:5]:  # Get details for first 5 matches
+            match_url = f"{EUROPE_BASE_URL}/lol/match/v5/matches/{match_id}"
+            match_response = requests.get(match_url, headers=headers)
+            if match_response.status_code == 200:
+                match_data = match_response.json()
+                # Find participant data
+                participant = next((p for p in match_data['info']['participants'] if p['puuid'] == puuid), None)
+                if participant:
+                    recent_matches.append({
+                        'champion': participant['championName'],
+                        'result': 'Victory' if participant['win'] else 'Defeat',
+                        'kda': f"{participant['kills']}/{participant['deaths']}/{participant['assists']}",
+                        'duration': f"{match_data['info']['gameDuration']//60}:{match_data['info']['gameDuration']%60:02d}",
+                        'gameMode': match_data['info']['gameMode']
+                    })
+        
+        result_data = {
+            'summoner': {
+                'gameName': account_data['gameName'],
+                'tagLine': account_data['tagLine'],
+                'riotId': riot_id,
+                'level': summoner_data['summonerLevel'],
+                'profileIconId': summoner_data['profileIconId'],
+                'puuid': puuid
+            },
+            'ranked': {
+                'tier': solo_queue['tier'] if solo_queue else 'UNRANKED',
+                'rank': solo_queue['rank'] if solo_queue else '',
+                'leaguePoints': solo_queue['leaguePoints'] if solo_queue else 0,
+                'wins': solo_queue['wins'] if solo_queue else 0,
+                'losses': solo_queue['losses'] if solo_queue else 0
+            },
+            'recentMatches': recent_matches
+        }
+        
+        return jsonify(result_data)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
