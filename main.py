@@ -311,7 +311,7 @@ def get_live_game(riot_id):
             print(f"Tried summoner ID approach, status: {live_response.status_code}")
         
         # If no summoner ID or if summoner ID approach failed, try V5 API with PUUID
-        if not summoner_id or live_response.status_code != 200:
+        if not summoner_id or (live_response and live_response.status_code != 200):
             print(f"Trying V5 API with PUUID...")
             live_game_url_v5 = f"{RIOT_BASE_URL}/lol/spectator/v5/active-games/by-puuid/{puuid}"
             live_response_v5 = requests.get(live_game_url_v5, headers=headers)
@@ -332,6 +332,10 @@ def get_live_game(riot_id):
                     live_response_alt = requests.get(live_game_url_alt, headers=headers)
                     print(f"Alternative API status: {live_response_alt.status_code}")
                     live_response = live_response_alt
+
+        # Check if we have a valid response
+        if not live_response:
+            return jsonify({'error': 'Could not connect to live game API'}), 500
 
         if live_response.status_code == 404:
             return jsonify({'inGame': False, 'message': 'Player not in game'}), 200
